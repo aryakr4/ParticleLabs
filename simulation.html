@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Particle Lab — Interactive Particle Simulation</title>
+  <meta name="description" content="A fast, interactive particle simulation you can play with in your browser. Adjust parameters, add particles, and see emergent behavior in real time." />
+  <meta name="theme-color" content="#0b1020" />
+  <style>
+    :root{
+      --bg-1:#0b1020;
+      --bg-2:#111836;
+      --accent:#7fd6ff;
+      --accent-2:#a9ffcb;
+      --text:#e9eef7;
+      --muted:#a8b0c3;
+      --panel:#131a33cc;
+      --panel-solid:#131a33;
+      --btn:#1f2a52;
+      --btn-hover:#273266;
+      --ring:#7fd6ff55;
+      --maxw:1100px;
+      --radius:14px;
+      --shadow:0 10px 30px rgba(0,0,0,.35);
+    }
+    /* Basic reset */
+    *,*::before,*::after{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0;
+      font:16px/1.55 system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,"Helvetica Neue","Arial",sans-serif;
+      color:var(--text);
+      background:
+        radial-gradient(1200px 600px at 10% -10%, #24306b55, transparent 60%),
+        radial-gradient(900px 500px at 100% 0%, #2c6b6f33, transparent 60%),
+        linear-gradient(180deg, var(--bg-1), var(--bg-2));
+      background-attachment: fixed;
+      overflow-x:hidden;
+    }
+    a{color:inherit;text-decoration:none}
+    button{
+      font:inherit;border:0;border-radius:999px;cursor:pointer;
+      background:var(--btn);color:var(--text);padding:.9rem 1.15rem;
+      transition:transform .05s ease, background .15s ease, box-shadow .2s ease;
+      box-shadow:var(--shadow)
+    }
+    button:hover{background:var(--btn-hover)}
+    button:active{transform:translateY(1px)}
+    .btn-primary{
+      background:linear-gradient(90deg, var(--accent), var(--accent-2));
+      color:#0a1030;font-weight:700;
+    }
+    header{
+      position:sticky;top:0;z-index:40;
+      backdrop-filter:saturate(140%) blur(10px);
+      background:#0b1020cc;border-bottom:1px solid #1a2247;
+    }
+    .nav{
+      max-width:var(--maxw);margin:0 auto;padding:.75rem 1rem;
+      display:flex;align-items:center;gap:1rem;justify-content:space-between;
+    }
+    .brand{display:flex;align-items:center;gap:.6rem;font-weight:700;letter-spacing:.2px}
+    .brand .dot{width:10px;height:10px;border-radius:50%;
+      background:radial-gradient(circle at 30% 30%, var(--accent-2), var(--accent));box-shadow:0 0 16px #7fd6ffaa}
+    .nav a{opacity:.9}
+    .links{display:flex;gap:.9rem;align-items:center;flex-wrap:wrap}
+    .hero{
+      position:relative;isolation:isolate;min-height:64svh;display:grid;place-items:center;
+      padding:6rem 1rem 3rem
+    }
+    .hero-inner{max-width:var(--maxw);width:100%;display:grid;grid-template-columns:1.1fr .9fr;gap:2.5rem;align-items:center}
+    .title{
+      font-size:clamp(2rem, 4.5vw, 3.4rem);line-height:1.08;margin:0 0 1rem;font-weight:800;
+      letter-spacing:.2px
+    }
+    .subtitle{color:var(--muted);margin:0 0 1.25rem;max-width:55ch}
+    .cta-row{display:flex;gap:.8rem;flex-wrap:wrap}
+    .hero-card{
+      position:relative;border-radius:var(--radius);
+      background:linear-gradient(180deg, #141b3b, #0e1430);
+      border:1px solid #1d2550;padding:1rem;box-shadow:var(--shadow);
+    }
+    .hero-badge{
+      display:inline-flex;align-items:center;gap:.5rem;border:1px solid #26407a;
+      background:#0e1534; border-radius:999px;padding:.35rem .65rem;margin-bottom:.9rem;
+      font-size:.85rem;color:#b7c1db
+    }
+    .glass{
+      background:var(--panel);border:1px solid #1c2552;border-radius:var(--radius);box-shadow:var(--shadow)
+    }
+    main{display:block}
+    section{padding:3rem 1rem}
+    .grid{
+      max-width:var(--maxw);margin:0 auto;display:grid;gap:1.25rem
+    }
+    /* Demo section */
+    #demo .canvas-wrap{
+      position:relative;border-radius:18px;overflow:hidden;
+      outline:1px solid #1b2350;box-shadow:var(--shadow);
+      background:radial-gradient(800px 400px at 70% 10%, #2b6b8a22, transparent 60%);
+    }
+    #sim-canvas{display:block;width:100%;height:60svh}
+    .panel{
+      position:absolute;inset:auto 12px 12px auto;z-index:3;max-width:min(360px, 90vw);
+      padding:1rem; backdrop-filter:blur(10px) saturate(140%); border-radius:14px;
+    }
+    .panel h3{margin:.2rem 0 1rem;font-size:1rem;color:#d6def3}
+    .control{display:grid;grid-template-columns:1fr auto;gap:.6rem;align-items:center;margin:.5rem 0}
+    .control label{font-size:.9rem;color:#b9c3dd}
+    .control input[type=range]{width:100%}
+    .toggles{display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.6rem}
+    .small{font-size:.8rem;color:#a5aec9}
+    .legend{position:absolute;left:12px;bottom:12px;z-index:2;font-size:.85rem;color:#C8D1EA}
+    .legend b{color:#fff}
+    /* Features */
+    .features{grid-template-columns:repeat(auto-fit,minmax(230px,1fr))}
+    .card{padding:1rem;border:1px solid #1b2350;border-radius:14px;background:#0d1433}
+    .card h4{margin:.2rem 0 .4rem}
+    /* Footer */
+    footer{padding:3rem 1rem;color:#9aa4c6;border-top:1px solid #1a2247}
+    .footer-inner{max-width:var(--maxw);margin:0 auto;display:flex;flex-wrap:wrap;gap:1rem;justify-content:space-between;align-items:center}
+    /* Responsive */
+    @media (max-width: 920px){
+      .hero-inner{grid-template-columns:1fr}
+    }
+    /* Accessibility helpers */
+    .visually-hidden{position:absolute!important;clip:rect(1px,1px,1px,1px);padding:0;border:0;height:1px;width:1px;overflow:hidden;white-space:nowrap}
+    /* Fancy orbs in the background */
+    .orb{
+      position:absolute;inset:auto auto 10% -8%;
+      width:38vmax;height:38vmax;border-radius:50%;
+      background:radial-gradient(50% 50% at 30% 30%, #2af6ff, #1a56ff 45%, transparent 60%);
+      filter:blur(40px);opacity:.06;pointer-events:none;z-index:0
+    }
+    .orb.two{
+      inset:-16% -12% auto auto;width:44vmax;height:44vmax;
+      background:radial-gradient(50% 50% at 60% 40%, #b2ff9e, #2e7d32 45%, transparent 60%);
+      transform:rotate(20deg)
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <nav class="nav" aria-label="Primary">
+      <div class="brand"><span class="dot" aria-hidden="true"></span> Particle Lab</div>
+      <div class="links">
+        <a href="#demo">Live demo</a>
+        <a href="#about">About</a>
+        <a href="#features">Capabilities</a>
+        <a href="#cta" class="visually-hidden">Call to action</a>
+      </div>
+    </nav>
+  </header>
+
+  <div class="hero" role="banner">
+    <div class="orb" aria-hidden="true"></div>
+    <div class="orb two" aria-hidden="true"></div>
+
+    <div class="hero-inner">
+      <div>
+        <div class="hero-badge">Real-time | GPU-free | Browser-ready</div>
+        <h1 class="title">Particle Lab: real-time emergent motion in your browser</h1>
+        <p class="subtitle">
+          Watch thousands of particles interact using simple rules that produce complex behavior:
+          cohesion, separation, alignment, and a hint of noise. Tweak sliders, add particles,
+          and see how small changes ripple through the system.
+        </p>
+        <div class="cta-row">
+          <a href="#demo"><button class="btn-primary" aria-label="Jump to live simulation">Try the demo</button></a>
+          <a href="#about"><button aria-label="Learn more about the project">Learn more</button></a>
+        </div>
+      </div>
+
+      <div class="hero-card glass">
+        <canvas id="preview" aria-label="Animated particle preview" style="width:100%;height:260px;display:block;border-radius:12px;outline:1px solid #1c2552"></canvas>
+        <p class="small" style="margin:.75rem 0 0">
+          Lightweight JavaScript with <b>canvas</b>, no frameworks required. Pauses when off-screen and honors “reduced motion.”
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <main>
+    <section id="demo">
+      <div class="grid">
+        <h2 class="visually-hidden">Live Particle Simulation</h2>
+        <div class="canvas-wrap">
+          <canvas id="sim-canvas" aria-label="Interactive particle simulation"></canvas>
+
+          <div class="panel glass" role="region" aria-label="Simulation controls">
+            <h3>Controls</h3>
+            <div class="control">
+              <label for="count">Particles</label>
+              <input id="count" type="range" min="200" max="5000" step="100" value="1600" />
+            </div>
+            <div class="control">
+              <label for="speed">Speed</label>
+              <input id="speed" type="range" min="0.2" max="3" step="0.1" value="1.2" />
+            </div>
+            <div class="control">
+              <label for="linkDist">Link distance</label>
+              <input id="linkDist" type="range" min="20" max="200" step="5" value="110" />
+            </div>
+            <div class="control">
+              <label for="mouseForce">Mouse influence</label>
+              <input id="mouseForce" type="range" min="-1" max="1" step="0.05" value="0.45" />
+            </div>
+            <div class="toggles">
+              <label class="small"><input id="wrap" type="checkbox" checked /> Wrap edges</label>
+              <label class="small"><input id="lines" type="checkbox" checked /> Show links</label>
+              <label class="small"><input id="colorShift" type="checkbox" checked /> Color shift</label>
+            </div>
+            <div class="toggles">
+              <button id="add100" title="Add 100 particles">+100</button>
+              <button id="reset">Reset</button>
+              <a href="#about"><button id="learn">What am I seeing?</button></a>
+            </div>
+          </div>
+
+          <div class="legend">Tip: move your pointer. Hold <b>Shift</b> to repel.</div>
+        </div>
+      </div>
+    </section>
+
+    <section id="about">
+      <div class="grid">
+        <h3>What this shows</h3>
+        <p class="small" style="font-size:1rem;color:#cfd6ee">
+          The simulation updates particles at 60 FPS with simple rules: each particle has a velocity,
+          feels a mild pull toward nearby neighbors, avoids getting too close, and is nudged by noise.
+          The balance creates smooth flowing motion that looks alive.
+        </p>
+      </div>
+    </section>
+
+    <section id="features">
+      <div class="grid features">
+        <div class="card">
+          <h4>Interactive by design</h4>
+          <p class="small">Drag to attract or repel. Tune speed, density, and link radius on the fly.</p>
+        </div>
+        <div class="card">
+          <h4>Efficient</h4>
+          <p class="small">Spatial hashing reduces neighbor lookups so thousands of particles run smoothly.</p>
+        </div>
+        <div class="card">
+          <h4>Accessible</h4>
+          <p class="small">Respects “reduced motion,” pauses when hidden, and works on mobile and desktop.</p>
+        </div>
+        <div class="card">
+          <h4>Portable</h4>
+          <p class="small">A single HTML file. No dependencies. Drop it on any static host or use locally.</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="cta" aria-label="Get involved">
+      <div class="grid" style="place-items:center;text-align:center">
+        <h3 style="margin:.2rem 0 0">Explore the system</h3>
+        <p class="small" style="max-width:60ch">
+          Want to integrate this into your project or class? Fork the code, change the rules, and compare outcomes.
+          The control panel is a starting point — add sliders for alignment or noise and make it your own.
+        </p>
+        <div class="cta-row" style="justify-content:center">
+          <a href="#demo"><button class="btn-primary">Open the demo</button></a>
+          <a href="#features"><button>See capabilities</button></a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="footer-inner">
+      <div>© <span id="year"></span> Particle Lab</div>
+      <div class="small">Built with Canvas API. No cookies. No tracking.</div>
+    </div>
+  </footer>
+
+  <noscript>
+    <div style="max-width:800px;margin:1rem auto;padding:1rem;border-radius:12px;background:#261a1a;color:#ffd9d9">
+      This page needs JavaScript to run the simulation. Please enable it and reload.
+    </div>
+  </noscript>
+
+  <script>
+    // Helpers: DPR-aware canvas
+    function fitCanvasToParent(canvas){
+      const dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
+      const rect = canvas.getBoundingClientRect();
+      canvas.width = Math.max(1, Math.floor(rect.width * dpr));
+      canvas.height = Math.max(1, Math.floor(rect.height * dpr));
+      const ctx = canvas.getContext('2d');
+      ctx.setTransform(dpr,0,0,dpr,0,0); // draw in CSS pixels
+      return {ctx, dpr};
+    }
+
+    // Mini animated preview in the hero card (lightweight, decorative)
+    (function preview(){
+      const canvas = document.getElementById('preview');
+      if(!canvas) return;
+      let {ctx} = fitCanvasToParent(canvas);
+      let w=canvas.clientWidth, h=canvas.clientHeight;
+      const N=120;
+      const pts = Array.from({length:N}, ()=>({
+        x: Math.random()*w, y: Math.random()*h,
+        vx:(Math.random()*2-1)*0.6, vy:(Math.random()*2-1)*0.6
+      }));
+      const colors = ['#7fd6ff','#a9ffcb','#b8a9ff','#ffd18a'];
+
+      function step(){
+        const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        if(prefersReduced) return; // stop anim if user prefers less motion
+        const rect = canvas.getBoundingClientRect();
+        if(rect.top>window.innerHeight || rect.bottom<0){ requestAnimationFrame(step); return; } // skip off-screen
+        ({ctx} = fitCanvasToParent(canvas)); w=canvas.clientWidth; h=canvas.clientHeight;
+        ctx.clearRect(0,0,w,h);
+        for(const p of pts){
+          p.x+=p.vx; p.y+=p.vy;
+          if(p.x<0||p.x>w) p.vx*=-1;
+          if(p.y<0||p.y>h) p.vy*=-1;
+          ctx.beginPath(); ctx.arc(p.x,p.y,1.6,0,Math.PI*2);
+          ctx.fillStyle = colors[(p.x+p.y|0)%colors.length];
+          ctx.fill();
+        }
+        requestAnimationFrame(step);
+      }
+      step();
+      addEventListener('resize', ()=>fitCanvasToParent(canvas), {passive:true});
+    })();
+
+    // --- Main Simulation ---
+    const canvas = document.getElementById('sim-canvas');
+    let {ctx} = fitCanvasToParent(canvas);
+    let W = canvas.clientWidth, H = canvas.clientHeight;
+
+    // UI elements
+    const ui = {
+      count: document.getElementById('count'),
+      speed: document.getElementById('speed'),
+      linkDist: document.getElementById('linkDist'),
+      mouseForce: document.getElementById('mouseForce'),
+      wrap: document.getElementById('wrap'),
+      lines: document.getElementById('lines'),
+      colorShift: document.getElementById('colorShift'),
+      add100: document.getElementById('add100'),
+      reset: document.getElementById('reset'),
+    };
+
+    // Particle state
+    let particles = [];
+    let maxCount = +ui.count.value;
+    let speed = +ui.speed.value;
+    let linkDist = +ui.linkDist.value;
+    let mouseForce = +ui.mouseForce.value;
+    let showLines = ui.lines.checked;
+    let wrap = ui.wrap.checked;
+    let colorShift = ui.colorShift.checked;
+
+    // Spatial hash for neighbor search
+    const grid = {
+      size: 40,
+      map: new Map(),
+      key(x,y){ return ((x/this.size|0)<<16) ^ (y/this.size|0); },
+      clear(){ this.map.clear(); },
+      insert(p){
+        const k = this.key(p.x, p.y);
+        if(!this.map.has(k)) this.map.set(k, []);
+        this.map.get(k).push(p);
+      },
+      neighbors(p){
+        const res = [];
+        const gx = (p.x/this.size|0), gy = (p.y/this.size|0);
+        for(let yy=-1; yy<=1; yy++){
+          for(let xx=-1; xx<=1; xx++){
+            const cell = this.map.get(((gx+xx)<<16) ^ (gy+yy));
+            if(cell) res.push(...cell);
+          }
+        }
+        return res;
+      }
+    };
+
+    function makeParticle(){
+      return {
+        x: Math.random()*W,
+        y: Math.random()*H,
+        vx: (Math.random()*2-1) * speed,
+        vy: (Math.random()*2-1) * speed,
+        h: Math.random()*360 // hue
+      };
+    }
+
+    function setCount(n){
+      maxCount = n|0;
+      if(particles.length < maxCount){
+        const need = maxCount - particles.length;
+        for(let i=0;i<need;i++) particles.push(makeParticle());
+      }else if(particles.length > maxCount){
+        particles.length = maxCount;
+      }
+    }
+
+    function reset(){
+      particles = [];
+      setCount(maxCount);
+    }
+
+    // Mouse interaction
+    const mouse = {x:0, y:0, down:false, repel:false};
+    canvas.addEventListener('pointerdown', e=>{ mouse.down=true; mouse.repel = e.shiftKey; });
+    addEventListener('pointerup', ()=> mouse.down=false);
+    addEventListener('pointermove', e=>{
+      const rect = canvas.getBoundingClientRect();
+      mouse.x = e.clientX - rect.left;
+      mouse.y = e.clientY - rect.top;
+      mouse.repel = e.shiftKey;
+    }, {passive:true});
+
+    // UI wiring
+    ui.count.addEventListener('input', e=> setCount(+e.target.value));
+    ui.speed.addEventListener('input', e=> speed = +e.target.value);
+    ui.linkDist.addEventListener('input', e=> linkDist = +e.target.value);
+    ui.mouseForce.addEventListener('input', e=> mouseForce = +e.target.value);
+    ui.lines.addEventListener('change', e=> showLines = e.target.checked);
+    ui.wrap.addEventListener('change', e=> wrap = e.target.checked);
+    ui.colorShift.addEventListener('change', e=> colorShift = e.target.checked);
+    ui.add100.addEventListener('click', ()=> setCount(maxCount = Math.min(maxCount+100, 8000)));
+    ui.reset.addEventListener('click', ()=> reset());
+
+    // Resize handling
+    function onResize(){
+      ({ctx} = fitCanvasToParent(canvas));
+      W = canvas.clientWidth; H = canvas.clientHeight;
+    }
+    addEventListener('resize', onResize, {passive:true});
+    onResize();
+
+    // Init
+    reset();
+
+    // Animation loop with tab-visibility pause and reduced motion
+    let running = true;
+    document.addEventListener('visibilitychange', ()=> running = !document.hidden);
+    const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)');
+    prefersReduced.addEventListener?.('change', ()=>{}); // ensure responsive if toggled
+
+    function loop(){
+      if(running && !prefersReduced.matches){
+        step(); draw();
+      }
+      requestAnimationFrame(loop);
+    }
+
+    // Physics step
+    function step(){
+      grid.clear();
+      for(const p of particles) grid.insert(p);
+
+      const alignWeight = 0.02;  // subtle alignment
+      const separateDist = 18;   // keep a bit of space
+      const cohereWeight = 0.005;
+      const noise = 0.15;
+
+      for(const p of particles){
+        let ax=0, ay=0, cx=0, cy=0, count=0, avx=0, avy=0;
+
+        // neighbors
+        const neigh = grid.neighbors(p);
+        for(const q of neigh){
+          if(p===q) continue;
+          const dx = q.x - p.x, dy = q.y - p.y;
+          const d2 = dx*dx + dy*dy;
+          if(d2 === 0) continue;
+          // separation
+          if(d2 < separateDist*separateDist){
+            const inv = 1/Math.sqrt(d2);
+            ax -= dx*inv*0.3; ay -= dy*inv*0.3;
+          }
+          // cohesion + alignment within linkDist
+          if(d2 < linkDist*linkDist){
+            cx += q.x; cy += q.y; count++;
+            avx += q.vx; avy += q.vy;
+          }
+        }
+
+        if(count){
+          // cohesion
+          ax += ((cx/count)-p.x) * cohereWeight;
+          ay += ((cy/count)-p.y) * cohereWeight;
+          // alignment
+          ax += (avx/count - p.vx) * alignWeight;
+          ay += (avy/count - p.vy) * alignWeight;
+        }
+
+        // mouse influence
+        if(mouse.down || mouseForce !== 0){
+          const dx = mouse.x - p.x, dy = mouse.y - p.y;
+          const dist = Math.hypot(dx,dy) + 0.0001;
+          const dir = (mouse.down ? (mouse.repel?-1:1) : 1);
+          const mf = mouseForce * 0.8 * (1/(1 + dist/140));
+          ax += dx/dist * mf * dir;
+          ay += dy/dist * mf * dir;
+        }
+
+        // noise
+        ax += (Math.random()*2-1) * noise * 0.02;
+        ay += (Math.random()*2-1) * noise * 0.02;
+
+        // integrate
+        p.vx = (p.vx + ax);
+        p.vy = (p.vy + ay);
+
+        // clamp speed
+        const sp = Math.hypot(p.vx, p.vy) + 0.0001;
+        const maxSp = 0.6 + speed*0.8;
+        if(sp > maxSp){ p.vx = p.vx/sp*maxSp; p.vy = p.vy/sp*maxSp; }
+
+        p.x += p.vx;
+        p.y += p.vy;
+
+        // bounds
+        if(wrap){
+          if(p.x<0) p.x+=W; if(p.x>W) p.x-=W;
+          if(p.y<0) p.y+=H; if(p.y>H) p.y-=H;
+        }else{
+          if(p.x<0||p.x>W) p.vx*=-1, p.x=Math.max(0,Math.min(W,p.x));
+          if(p.y<0||p.y>H) p.vy*=-1, p.y=Math.max(0,Math.min(H,p.y));
+        }
+
+        // color evolution
+        if(colorShift) p.h = (p.h + 0.2 + speed*0.02) % 360;
+      }
+    }
+
+    // Render
+    function draw(){
+      ctx.clearRect(0,0,W,H);
+
+      // lines
+      if(showLines){
+        ctx.globalAlpha = 0.5;
+        ctx.lineWidth = 1;
+        for(const p of particles){
+          const neigh = grid.neighbors(p);
+          for(const q of neigh){
+            if(p===q) continue;
+            const dx = q.x - p.x, dy = q.y - p.y;
+            const d2 = dx*dx + dy*dy;
+            if(d2 < linkDist*linkDist){
+              const a = 1 - (Math.sqrt(d2)/linkDist);
+              ctx.beginPath();
+              ctx.moveTo(p.x, p.y);
+              ctx.lineTo(q.x, q.y);
+              ctx.strokeStyle = `hsla(${(p.h+q.h)/2}, 90%, 70%, ${a*0.25})`;
+              ctx.stroke();
+            }
+          }
+        }
+        ctx.globalAlpha = 1;
+      }
+
+      // points
+      for(const p of particles){
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 1.5, 0, Math.PI*2);
+        ctx.fillStyle = `hsl(${p.h},90%,70%)`;
+        ctx.fill();
+      }
+    }
+
+    loop();
+
+    // Footer year
+    document.getElementById('year').textContent = new Date().getFullYear();
+  </script>
+</body>
+</html>
